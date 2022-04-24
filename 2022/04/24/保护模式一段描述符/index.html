@@ -1,0 +1,50 @@
+<!DOCTYPE html><html lang="en"><head><title>保护模式一段描述符</title><meta http-equiv="content-type" content="text/html; charset=utf-8"><meta name="viewport" content="width=device-width, initial-scale=0.5"><link rel="icon" type="image/svg+xml" href="/favicon.svg"><link rel="stylesheet" href="/css/highlight/xcode.min.css"><link rel="stylesheet" href="/css/bootstrap/bootstrap-tooltips.css"><link rel="stylesheet" href="/css/post.css"><script src="/js/jquery.min.js"></script><meta name="generator" content="Hexo 6.1.0"></head><body><script>if (/mobile/i.test(navigator.userAgent) || /android/i.test(navigator.userAgent)) {
+  document.body.classList.add('mobile')
+}</script><div><div class="inner"><h2>保护模式一段描述符</h2><h2 id="0x01段寄存器"><a href="#0x01段寄存器" class="headerlink" title="0x01段寄存器"></a>0x01段寄存器</h2><p>  段寄存器长度为96位，其中包含如下成员：</p>
+<pre><code class="cpp">&#123;   
+    selector;          //段选择子16位
+    arrtibute;         //段属性16位
+    limit;             //段限长32位
+    base;              //段基址32位
+&#125;
+</code></pre>
+<p>  其中段选择子即常见的6个段寄存器的数值（也就是我们可见的16位），比如cs,ds,ss,es,fs,gs；其中除cs外，其余段寄存器的低两位为rpl(请求特权级别)，cs的低两位为cpl(当前特权级别)。</p>
+<img src="2.png">
+
+<h2 id="0x02段描述符"><a href="#0x02段描述符" class="headerlink" title="0x02段描述符"></a>0x02段描述符</h2><img src="1.png">
+```cpp
+{
+    P;       //此描述符是否有效
+    S;       //为0的话，表示此描述符为系统段，否则为代码段 
+             //或者数据段
+    Type;    //当S为1的时候，Type最高位为1则为代码段，最高
+             //位为0则表示为数据段
+    DB；     //为1则表示，内存寻址为32位，堆栈使用ESP，段大
+             //小为4GB;0则表示内存寻址为16位，堆栈使用SP，段
+             //大小为64KB
+}
+```
+
+<p>段描述符中”<strong>高32位中的8-23位加载到段寄存器的attribute</strong>“，本来从段描述符中加载20位的Limit，最大为FFFFF，但如果G位为0，则Limit的单位为1字节，则Limit最大为FFFFF，也就是64K；G位为1，则Limit的单位为4kb，Limit最大为FFFFFFFF，也就是4GB.</p>
+<h2 id="0x03代码段或数据段"><a href="#0x03代码段或数据段" class="headerlink" title="0x03代码段或数据段"></a>0x03代码段或数据段</h2><img src="3.png">
+当数据段Type字符次高位为0，则表示此数据段向上扩展；为1则表示向下扩展,不过Windows中并没有向下扩展的数据段。
+## 0x04数据段
+<img src="4.png">
+其中红色的部分才是段中可取地址的范围。向上扩展段是fs.base-fs.base+Limit，向下扩展段则相反。其中DB位为1则表示整个空间为4GB，0则表示整个空间为64kb。如下图
+<img src="5.png">
+
+<h2 id="0x05权限检查"><a href="#0x05权限检查" class="headerlink" title="0x05权限检查"></a>0x05权限检查</h2><pre><code class="asm">    mov ax, 0x23;
+    mov ds, ax;
+</code></pre>
+<p>以上代码运行时会进行权限检查，数据段权限检查是**CPL&lt;&#x3D;DPL&amp;&amp;RPL&lt;&#x3D;DPL**,而且当只有对段寄存器写值的时候才会进行权限检查。<br>GDTR表如下图<br><img src="6.png"></p>
+<pre><code class="cpp">0x23
+---------------
+00100    0    11
+  4           3
+|index|  Ti  |RPL|
+</code></pre>
+<p>00cff300&#96;0000ffff<br>4对应的是这个段描述符，可以看的出来它的DPL为3，所以RPL&lt;&#x3D;DPL,但只要这个汇编代码是在3环(CPL&#x3D;3)运行的，则权限检查完毕，因为RPL&lt;&#x3D;DPL&amp;&amp;CPL&lt;&#x3D;DPL，所以可以将23写进ds。</p>
+</div></div></body><script src="/js/highlight.min.js"></script><script src="/js/main.js?v=1"></script><script src="/js/bootstrap/bootstrap.min.js"></script><script async="" src="https://www.googletagmanager.com/gtag/js?id=UA-0000"></script><script>window.dataLayer = window.dataLayer || [];
+function gtag(){dataLayer.push(arguments);}
+gtag('js', new Date());
+gtag('config', 'UA-0000');</script></html>
