@@ -1,0 +1,35 @@
+<!DOCTYPE html><html lang="en"><head><title>段间跳转访问一致或非一致代码段</title><meta http-equiv="content-type" content="text/html; charset=utf-8"><meta name="viewport" content="width=device-width, initial-scale=0.5"><link rel="icon" type="image/svg+xml" href="/favicon.svg"><link rel="stylesheet" href="/css/highlight/xcode.min.css"><link rel="stylesheet" href="/css/bootstrap/bootstrap-tooltips.css"><link rel="stylesheet" href="/css/post.css"><script src="/js/jquery.min.js"></script><meta name="generator" content="Hexo 6.1.0"></head><body><script>if (/mobile/i.test(navigator.userAgent) || /android/i.test(navigator.userAgent)) {
+  document.body.classList.add('mobile')
+}</script><div><div class="inner"><h2>段间跳转访问一致或非一致代码段</h2><h2 id="0x01代码间的跳转执行流程"><a href="#0x01代码间的跳转执行流程" class="headerlink" title="0x01代码间的跳转执行流程"></a>0x01代码间的跳转执行流程</h2><p>1 拆分段选择子</p>
+<p>2 查表得到段描述符，四种情况可以跳转:代码段、调用门、TSS任务段、任务门</p>
+<p>3 权限检查</p>
+<pre><code> 如果是非一致代码段，要求:CPL==DPL&amp;&amp;RPL&lt;=DPL
+
+ 如果是一直代码段，要求:CPL&gt;=DPL
+</code></pre>
+<p>4 加载段描述符：通过上面的权限检查后，CPU会将段描述符加载到CS段寄存器中</p>
+<p>5 代码执行：CPU将CS.Base+Offset的值写入EIP然后执行CS:EIP处的代码，段间跳转结束。</p>
+<p>题外话：jmp能跳转到其他地方，那为什么还要有jmp far呢？</p>
+<pre><code>因为不同的代码段有权限的限制，也就是Attribute，所以需要使用jmp far来修改权限。
+</code></pre>
+<h2 id="0x02实验"><a href="#0x02实验" class="headerlink" title="0x02实验"></a>0x02实验</h2><pre><code class="cpp">//非一致代码段
+00cffb00`0000ffff cpl=3 rpl=0/3
+11011 cs=1b
+//一致代码段
+00cfff00`0000ffff cpl=3 dpl=0/3
+10010 11/00  cs=4b/40    
+</code></pre>
+<p><img src="3.png"><br><br>此为gdt表</p>
+<img src="1.png">
+
+<p>上图为非一致代码段实验。<br /><br><img src="2.png"></p>
+<p>上图为一致代码段实验<br/></p>
+<h2 id="0x03总结"><a href="#0x03总结" class="headerlink" title="0x03总结"></a>0x03总结</h2><p>(1)非一致代码段(windows只使用了非一致代码段)</p>
+<p>&amp;emsp;只允许同级访问<br/><br>&amp;emsp;绝对禁止不同级别的访问:内核态不允许访问用户态，用户态也不允许访问内核态。</p>
+<p>（2）一致代码段</p>
+<p>&amp;emsp;特权级高的指令不允许访问特权级低的数据：核心态不允许访问用户态<br/><br>&amp;emsp;特权级低的指令可以访问特权级高的数据，但特权级别不会变</p>
+<p>**段间跳转的时候，无论目标代码段是一致还是非一致，CPL都不会变，如果要提升CPL权限，只能通过调用门</p>
+</div></div></body><script src="/js/highlight.min.js"></script><script src="/js/main.js?v=1"></script><script src="/js/bootstrap/bootstrap.min.js"></script><script async="" src="https://www.googletagmanager.com/gtag/js?id=UA-0000"></script><script>window.dataLayer = window.dataLayer || [];
+function gtag(){dataLayer.push(arguments);}
+gtag('js', new Date());
+gtag('config', 'UA-0000');</script></html>
