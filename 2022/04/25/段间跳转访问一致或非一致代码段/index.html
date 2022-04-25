@@ -25,10 +25,10 @@
 <p>上图为非一致代码段实验。<br /><br><img src="2.png"></p>
 <p>上图为一致代码段实验<br/></p>
 <h2 id="0x03总结"><a href="#0x03总结" class="headerlink" title="0x03总结"></a>0x03总结</h2><p>(1)非一致代码段(windows只使用了非一致代码段)</p>
-<p>&amp;emsp;只允许同级访问<br/><br>&amp;emsp;绝对禁止不同级别的访问:内核态不允许访问用户态，用户态也不允许访问内核态。</p>
+<p>只允许同级访问<br/><br>绝对禁止不同级别的访问:内核态不允许访问用户态，用户态也不允许访问内核态。</p>
 <p>（2）一致代码段</p>
-<p>&amp;emsp;特权级高的指令不允许访问特权级低的数据：核心态不允许访问用户态<br/><br>&amp;emsp;特权级低的指令可以访问特权级高的数据，但特权级别不会变</p>
-<p>**段间跳转的时候，无论目标代码段是一致还是非一致，CPL都不会变，如果要提升CPL权限，只能通过调用门</p>
+<p>特权级高的指令不允许访问特权级低的数据：核心态不允许访问用户态<br/><br>特权级低的指令可以访问特权级高的数据，但特权级别不会变</p>
+<p><strong>段间跳转的时候，无论目标代码段是一致还是非一致，CPL都不会变，如果要提升CPL权限，只能通过调用门</strong></p>
 </div></div></body><script src="/js/highlight.min.js"></script><script src="/js/main.js?v=1"></script><script src="/js/bootstrap/bootstrap.min.js"></script><script async="" src="https://www.googletagmanager.com/gtag/js?id=UA-0000"></script><script>window.dataLayer = window.dataLayer || [];
 function gtag(){dataLayer.push(arguments);}
 gtag('js', new Date());
