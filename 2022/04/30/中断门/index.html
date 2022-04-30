@@ -4,7 +4,7 @@
 
 <p>中段门Type中的D为1，表示这是一个32位的中断门，为0则是一个16位的中断门，中断门存储在idt表中。idt表中包含任务门描述符、中断门描述符、陷阱门描述符。</p>
 <p>中断门描述符与调用门一样，访问中断门需要cpl&#x3D;dpl，根据段描述符中的段选择子来决定是否提权，然后根据段选择子会查找gdt表。</p>
-<p>调用中断门通过 <strong>int n</strong>来调用，n代表idt表的下标，然后进入中断门后通过<strong>iret或者iretd</strong>返回</p>
+<p>调用中断门通过 <strong>int n</strong>来调用，n代表idt表的下标，然后进入中断门后通过<strong>iret或者iretd</strong>返回,中断门会压栈（提权）ss，esp，eflags，cs，eip，不提权cs，eflags、eip</p>
 <h3 id="0x02中断门实验"><a href="#0x02中断门实验" class="headerlink" title="0x02中断门实验"></a>0x02中断门实验</h3><img src="2.png">
 
 <pre><code class="cpp">#include&lt;stdio.h&gt;
@@ -29,7 +29,10 @@ int main()
     system(&quot;pause&quot;);
 &#125;
 </code></pre>
-<img src="3.png"></div></div></body><script src="/js/highlight.min.js"></script><script src="/js/main.js?v=1"></script><script src="/js/bootstrap/bootstrap.min.js"></script><script async="" src="https://www.googletagmanager.com/gtag/js?id=UA-0000"></script><script>window.dataLayer = window.dataLayer || [];
+<img src="3.png">
+
+<p>123</p>
+</div></div></body><script src="/js/highlight.min.js"></script><script src="/js/main.js?v=1"></script><script src="/js/bootstrap/bootstrap.min.js"></script><script async="" src="https://www.googletagmanager.com/gtag/js?id=UA-0000"></script><script>window.dataLayer = window.dataLayer || [];
 function gtag(){dataLayer.push(arguments);}
 gtag('js', new Date());
 gtag('config', 'UA-0000');</script></html>
