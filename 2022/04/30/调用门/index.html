@@ -1,0 +1,65 @@
+<!DOCTYPE html><html lang="en"><head><title>调用门</title><meta http-equiv="content-type" content="text/html; charset=utf-8"><meta name="viewport" content="width=device-width, initial-scale=0.5"><link rel="icon" type="image/svg+xml" href="/favicon.svg"><link rel="stylesheet" href="/css/highlight/xcode.min.css"><link rel="stylesheet" href="/css/bootstrap/bootstrap-tooltips.css"><link rel="stylesheet" href="/css/post.css"><script src="/js/jquery.min.js"></script><meta name="generator" content="Hexo 6.1.0"></head><body><script>if (/mobile/i.test(navigator.userAgent) || /android/i.test(navigator.userAgent)) {
+  document.body.classList.add('mobile')
+}</script><div><div class="inner"><h2>调用门</h2><h3 id="0x01调用门"><a href="#0x01调用门" class="headerlink" title="0x01调用门"></a>0x01调用门</h3><img src="1.png">
+
+<p>调用门指令：call far cs:eip（eip是废弃的）</p>
+<p><strong>其中cpl&#x3D;dpl，根据rpl去查找调用门，只要cpl&#x3D;dpl，然后根据查找到的调用门里的段选择子决定是否去提权，而且段描述符中的段选择子必须指向一个代码段，然后根据代码段的base+段描述符的offset去决定eip。调用门还可以传参</strong></p>
+<p>其中通过调用门提权后，通过retf返回。</p>
+<h3 id="0x02调用门提权后的堆栈"><a href="#0x02调用门提权后的堆栈" class="headerlink" title="0x02调用门提权后的堆栈"></a>0x02调用门提权后的堆栈</h3><img src="2.png">
+
+<p>如果传递了参数的话，参数会处于cs与esp之间</p>
+<h3 id="0x03调用门访问高2G内存"><a href="#0x03调用门访问高2G内存" class="headerlink" title="0x03调用门访问高2G内存"></a>0x03调用门访问高2G内存</h3><pre><code class="cpp">//通过调用门去访问GDT表
+#include&lt;stdio.h&gt;
+#include&lt;windows.h&gt;
+#pragma pack(1)
+struct gdt &#123;
+    WORD gdtl;
+    DWORD gdtr;
+&#125;;
+#pragma pack()
+gdt gdt1;
+DWORD x, y;
+
+//HighLevel地址为0x401360
+void __declspec(naked) HighLevel()
+&#123;
+    //
+    __asm &#123;
+        pushfd;
+        pushad;
+        int 3;
+        lea eax, gdt1;
+        add eax, 2;
+        mov eax, [eax];
+        add eax, 8;
+        mov ecx, ds: [eax] ;
+        mov x, ecx;
+        add eax, 4;
+        mov ecx, ds: [eax] ;
+        mov y, ecx;
+        popad;
+        popfd;
+        retf;
+    &#125;
+&#125;
+
+
+int main()
+&#123;
+    __asm sgdt gdt1;
+        char buff[] = &#123; 0x12,0x34,0x56,0x78, 0x4B, 0x00 &#125;;
+        __asm push fs;       //如果调用门提权后的代
+                             //包含int 3，就需要
+                             //保存fs       
+        __asm &#123;
+            call fword ptr ds : [buff] ;
+        &#125;
+        __asm pop fs;
+        printf(&quot;%x`%x&quot;, x, y);
+        system(&quot;pause&quot;);
+&#125;
+</code></pre>
+</div></div></body><script src="/js/highlight.min.js"></script><script src="/js/main.js?v=1"></script><script src="/js/bootstrap/bootstrap.min.js"></script><script async="" src="https://www.googletagmanager.com/gtag/js?id=UA-0000"></script><script>window.dataLayer = window.dataLayer || [];
+function gtag(){dataLayer.push(arguments);}
+gtag('js', new Date());
+gtag('config', 'UA-0000');</script></html>
