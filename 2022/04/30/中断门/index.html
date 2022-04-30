@@ -1,6 +1,35 @@
 <!DOCTYPE html><html lang="en"><head><title>中断门</title><meta http-equiv="content-type" content="text/html; charset=utf-8"><meta name="viewport" content="width=device-width, initial-scale=0.5"><link rel="icon" type="image/svg+xml" href="/favicon.svg"><link rel="stylesheet" href="/css/highlight/xcode.min.css"><link rel="stylesheet" href="/css/bootstrap/bootstrap-tooltips.css"><link rel="stylesheet" href="/css/post.css"><script src="/js/jquery.min.js"></script><meta name="generator" content="Hexo 6.1.0"></head><body><script>if (/mobile/i.test(navigator.userAgent) || /android/i.test(navigator.userAgent)) {
   document.body.classList.add('mobile')
-}</script><div><div class="inner"><h2>中断门</h2></div></div></body><script src="/js/highlight.min.js"></script><script src="/js/main.js?v=1"></script><script src="/js/bootstrap/bootstrap.min.js"></script><script async="" src="https://www.googletagmanager.com/gtag/js?id=UA-0000"></script><script>window.dataLayer = window.dataLayer || [];
+}</script><div><div class="inner"><h2>中断门</h2><h3 id="0x01中断门"><a href="#0x01中断门" class="headerlink" title="0x01中断门"></a>0x01中断门</h3><img src="1.png">
+
+<p>中段门Type中的D为1，表示这是一个32位的中断门，为0则是一个16位的中断门，中断门存储在idt表中。idt表中包含任务门描述符、中断门描述符、陷阱门描述符。</p>
+<p>中断门描述符与调用门一样，访问中断门需要cpl&#x3D;dpl，根据段描述符中的段选择子来决定是否提权，然后根据段选择子会查找gdt表。</p>
+<p>调用中断门通过 <strong>int n</strong>来调用，n代表idt表的下标，然后进入中断门后通过<strong>iret或者iretd</strong>返回</p>
+<h3 id="0x02中断门实验"><a href="#0x02中断门实验" class="headerlink" title="0x02中断门实验"></a>0x02中断门实验</h3><img src="2.png">
+
+<pre><code class="cpp">#include&lt;stdio.h&gt;
+#include&lt;stdlib.h&gt;
+//地址411740
+void __declspec(naked) HighLevel()
+&#123;
+    _asm &#123;
+        int 3;
+        iretd;
+    &#125;
+&#125;
+
+int main()
+&#123;
+    
+    __asm &#123;
+        push fs;    //与调用门同理
+        int 0x20;
+        pop fs;
+    &#125;
+    system(&quot;pause&quot;);
+&#125;
+</code></pre>
+</div></div></body><script src="/js/highlight.min.js"></script><script src="/js/main.js?v=1"></script><script src="/js/bootstrap/bootstrap.min.js"></script><script async="" src="https://www.googletagmanager.com/gtag/js?id=UA-0000"></script><script>window.dataLayer = window.dataLayer || [];
 function gtag(){dataLayer.push(arguments);}
 gtag('js', new Date());
 gtag('config', 'UA-0000');</script></html>

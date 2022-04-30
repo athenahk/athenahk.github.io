@@ -7,8 +7,9 @@
 <p>其中通过调用门提权后，通过retf返回。</p>
 <h3 id="0x02调用门提权后的堆栈"><a href="#0x02调用门提权后的堆栈" class="headerlink" title="0x02调用门提权后的堆栈"></a>0x02调用门提权后的堆栈</h3><img src="2.png">
 
-<p>如果传递了参数的话，参数会处于cs与esp之间</p>
-<h3 id="0x03调用门访问高2G内存"><a href="#0x03调用门访问高2G内存" class="headerlink" title="0x03调用门访问高2G内存"></a>0x03调用门访问高2G内存</h3><pre><code class="cpp">//通过调用门去访问GDT表
+<p>如果传递了参数的话，参数会处于cs与esp之间,ss、esp是根据tss得到的</p>
+<h3 id="0x03调用门访问高2G内存"><a href="#0x03调用门访问高2G内存" class="headerlink" title="0x03调用门访问高2G内存"></a>0x03调用门访问高2G内存</h3><p>调用们描述符位**0040ec00&#96;00081360</p>
+<pre><code class="cpp">//通过调用门去访问GDT表
 #include&lt;stdio.h&gt;
 #include&lt;windows.h&gt;
 #pragma pack(1)
