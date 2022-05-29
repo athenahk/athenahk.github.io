@@ -1,0 +1,72 @@
+<!DOCTYPE html><html lang="en"><head><title>利用代码挂物理页下</title><meta http-equiv="content-type" content="text/html; charset=utf-8"><meta name="viewport" content="width=device-width, initial-scale=0.5"><link rel="icon" type="image/svg+xml" href="/favicon.svg"><link rel="stylesheet" href="/css/highlight/xcode.min.css"><link rel="stylesheet" href="/css/bootstrap/bootstrap-tooltips.css"><link rel="stylesheet" href="/css/post.css"><script src="/js/jquery.min.js"></script><meta name="generator" content="Hexo 6.1.0"></head><body><script>if (/mobile/i.test(navigator.userAgent) || /android/i.test(navigator.userAgent)) {
+  document.body.classList.add('mobile')
+}</script><div><div class="inner"><h2>利用代码挂物理页下</h2><h3 id="原理"><a href="#原理" class="headerlink" title="原理"></a>原理</h3><img src="2.png">
+
+<p>无论在哪个进程中，线性地址0xc0300000指向页目录表，而0xc0000000指向第一张页表，页表的线性地址是连续的，但是物理地址是不连续的。<br>PDE的addr &#x3D; 0xc0300000 + PDI*4;</p>
+<p>PTE的addr &#x3D; 0xc0000000 + PDI<em>0X1000+PTI</em>4</p>
+<h3 id="使用代码给0地址挂PDE与PTE"><a href="#使用代码给0地址挂PDE与PTE" class="headerlink" title="使用代码给0地址挂PDE与PTE"></a>使用代码给0地址挂PDE与PTE</h3><pre><code class="cpp">#include&lt;Windows.h&gt;
+#include&lt;stdio.h&gt;
+typedef ULONG(WINAPI* DBGPRINT)(
+    PCSTR Format,
+    ...
+    );
+
+DBGPRINT DbgPrint = NULL;
+DWORD* page = NULL;
+DWORD* GetPDE(DWORD addr)
+&#123;
+    DWORD pdi = addr &gt;&gt; 22;
+    return (DWORD*)(0xc0300000 + pdi * 4);
+&#125;
+
+DWORD* GetPTE(DWORD addr)
+&#123;
+    DWORD pti = (addr &gt;&gt; 12) &amp; 0x3ff;
+    DWORD pdi = addr &gt;&gt; 22;
+    return (DWORD*)(0Xc0000000 + pdi * 0x1000 + pti * 4);
+&#125;
+
+void __declspec(naked) R0Func()
+&#123;
+    __asm &#123;
+        push ebp;
+        mov ebp, esp;
+        sub esp, 0x1000;
+        pushad;
+        pushfd;
+        int 3;
+    &#125;
+
+    *GetPDE(NULL) = *GetPDE((DWORD)page);
+    *GetPTE(NULL) = *GetPTE((DWORD)page);
+
+    __asm &#123;
+        popfd;
+        popad;
+        add esp, 0x1000;
+        mov esp, ebp;
+        pop ebp;
+        iretd;
+    &#125;
+&#125;
+int main()
+&#123;
+    page = (DWORD *)VirtualAlloc(NULL, 4, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
+    *page = 0x11111111;
+    printf(&quot;page:%x\n&quot;, page);
+    getchar();
+    DbgPrint = (DBGPRINT)GetProcAddress(LoadLibraryA(&quot;ntdll.dll&quot;), &quot;DbgPrint&quot;);
+
+    __asm push fs;
+    __asm int 0x20;
+    __asm pop fs;
+    *(int*)NULL = 0x12345678;
+    printf(&quot;%x\n&quot;, *(int*)NULL);
+    getchar();
+&#125;
+</code></pre>
+<p>其中需要注意的是：新申请的虚拟空间必须进行赋值，否则PTE为0，只有进行了赋值才会分配物理页。</p>
+</div></div></body><script src="/js/highlight.min.js"></script><script src="/js/main.js?v=1"></script><script src="/js/bootstrap/bootstrap.min.js"></script><script async="" src="https://www.googletagmanager.com/gtag/js?id=UA-0000"></script><script>window.dataLayer = window.dataLayer || [];
+function gtag(){dataLayer.push(arguments);}
+gtag('js', new Date());
+gtag('config', 'UA-0000');</script></html>
