@@ -3,7 +3,7 @@
 }</script><div><div class="inner"><h2>利用代码挂物理页下</h2><h3 id="原理"><a href="#原理" class="headerlink" title="原理"></a>原理</h3><img src="2.png">
 
 <p>无论在哪个进程中，线性地址0xc0300000指向页目录表，而0xc0000000指向第一张页表，页表的线性地址是连续的，但是物理地址是不连续的。<br>PDE的addr &#x3D; 0xc0300000 + PDI*4;</p>
-<p>PTE的addr &#x3D; 0xc0000000 + PDI<em>0X1000+PTI</em>4</p>
+<p>PTE的addr &#x3D; 0xc0000000 + PDI * 0X1000 + PTI * 4</p>
 <h3 id="使用代码给0地址挂PDE与PTE"><a href="#使用代码给0地址挂PDE与PTE" class="headerlink" title="使用代码给0地址挂PDE与PTE"></a>使用代码给0地址挂PDE与PTE</h3><pre><code class="cpp">#include&lt;Windows.h&gt;
 #include&lt;stdio.h&gt;
 typedef ULONG(WINAPI* DBGPRINT)(
