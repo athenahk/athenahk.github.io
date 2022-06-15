@@ -1,0 +1,157 @@
+<!DOCTYPE html><html lang="en"><head><title>0环与3环通信</title><meta http-equiv="content-type" content="text/html; charset=utf-8"><meta name="viewport" content="width=device-width, initial-scale=0.5"><link rel="icon" type="image/svg+xml" href="/favicon.svg"><link rel="stylesheet" href="/css/highlight/xcode.min.css"><link rel="stylesheet" href="/css/bootstrap/bootstrap-tooltips.css"><link rel="stylesheet" href="/css/post.css"><script src="/js/jquery.min.js"></script><meta name="generator" content="Hexo 6.1.0"></head><body><script>if (/mobile/i.test(navigator.userAgent) || /android/i.test(navigator.userAgent)) {
+  document.body.classList.add('mobile')
+}</script><div><div class="inner"><h2>0环与3环通信</h2><img src="1.png">
+
+<p>3环程序消息传递是通过Msg结构体，消息接收对象为窗口，然后窗口再将消息传递消息回调函数。</br><br>0环程序通信时，消息传递是通过Irp结构体，相当于3环的Msg，然后就是设备对象为消息接收对象，由派遣函数区处理消息。</p>
+<h3 id="0环与3环通信"><a href="#0环与3环通信" class="headerlink" title="0环与3环通信"></a>0环与3环通信</h3><h4 id="数据交互方式"><a href="#数据交互方式" class="headerlink" title="数据交互方式"></a>数据交互方式</h4><p><strong>DO_BUFFERED_IO</strong>指的是0环访问3环数据会直接将3环数据复制一份到内核空间，这种适用于交互数据量不多的情况，但其缺点是效率慢。</br><br><strong>DO_DIRECT_IO</strong>指的是在内核空间映射地址，地址所对应的物理页和3环是同一个，同时物理页会被锁定，不能换页。优点是效率高。<br></br></br><br>如果并没有指定交互方式，那么默认就会为其他交互方式，此种方式是直接去访问3环的数据，那么当进程切换之后，访问地址会出错，此种方式是最危险罪不靠谱的，所以不推荐。</p>
+<h4 id="0环程序"><a href="#0环程序" class="headerlink" title="0环程序"></a>0环程序</h4><pre><code class="c">#include&lt;ntddk.h&gt;
+#define DEVICENAME L&quot;\\Device\\FirstDev&quot;
+#define SYMBOLICLINKNAME L&quot;\\??\\FirstSym&quot;
+
+#define CTL_DO_BUFFERED CTL_CODE(FILE_DEVICE_UNKNOWN, 0x800, METHOD_BUFFERED, FILE_ALL_ACCESS)
+VOID DriverUnload(PDRIVER_OBJECT pDriver)
+&#123;
+    UNICODE_STRING symbolicLinkName;
+    RtlInitUnicodeString(&amp;symbolicLinkName, SYMBOLICLINKNAME);
+    IoDeleteSymbolicLink(&amp;symbolicLinkName);
+    IoDeleteDevice(pDriver-&gt;DeviceObject);
+    DbgPrint(&quot;驱动已卸载!\n&quot;);
+&#125;
+
+
+NTSTATUS CloseDispatchRoutine(PDEVICE_OBJECT pDevice, PIRP pIrp)
+&#123;
+    DbgPrint(&quot;设备已关闭!\n&quot;);
+    //需设置返回状态，否则Ring3返回值是失败
+    pIrp-&gt;IoStatus.Status = STATUS_SUCCESS;
+    //返回到3环的字节数
+    pIrp-&gt;IoStatus.Information = 0;
+    //向下层函数继续传递
+    IoCompleteRequest(pIrp, IO_NO_INCREMENT);
+    return STATUS_SUCCESS;
+&#125;
+
+NTSTATUS CreateDispatchRoutine(PDEVICE_OBJECT pDevice, PIRP pIrp)
+&#123;
+    DbgPrint(&quot;设备已连接!\n&quot;);
+    pIrp-&gt;IoStatus.Status = STATUS_SUCCESS;
+    pIrp-&gt;IoStatus.Information = 0;
+    
+    IoCompleteRequest(pIrp, IO_NO_INCREMENT);
+    return STATUS_SUCCESS;
+&#125;
+
+NTSTATUS ReadDispatchRoutine(PDEVICE_OBJECT pDevice, PIRP pIrp)
+&#123;
+    DbgPrint(&quot;读取数据!\n&quot;);
+    pIrp-&gt;IoStatus.Status = STATUS_SUCCESS;
+    pIrp-&gt;IoStatus.Information = 0;
+    IoCompleteRequest(pIrp, IO_NO_INCREMENT);
+    return STATUS_SUCCESS;
+&#125;
+
+
+NTSTATUS DeviceIoCtlDispatchRoutine(PDEVICE_OBJECT pDriver, PIRP pIrp)
+&#123;
+    PIO_STACK_LOCATION pIrpStack = IoGetCurrentIrpStackLocation(pIrp);
+    ULONG ioCtlCode = pIrpStack-&gt;Parameters.DeviceIoControl.IoControlCode;
+    //从3环读取了多少数据
+    ULONG inputBufferLength = pIrpStack-&gt;Parameters.DeviceIoControl.InputBufferLength;
+    ULONG outputBufferLength = pIrpStack-&gt;Parameters.DeviceIoControl.OutputBufferLength;
+
+    switch (ioCtlCode)
+    &#123;
+    case CTL_DO_BUFFERED:
+    &#123;
+        DbgPrint(&quot;%s %d&quot;, pIrp-&gt;AssociatedIrp.SystemBuffer, inputBufferLength);
+        //如果设定方式是METHOD_BUFFERED方式，那么读写缓冲区都是SystemBuffer
+        RtlCopyMemory(pIrp-&gt;AssociatedIrp.SystemBuffer, &quot;缓冲区读写&quot;, 11);
+        //从0环读取数据的字节数
+        pIrp-&gt;IoStatus.Information = 4;
+    &#125;break;
+    &#125;
+
+    pIrp-&gt;IoStatus.Status = STATUS_SUCCESS;
+    IoCompleteRequest(pIrp, IO_NO_INCREMENT);
+    return STATUS_SUCCESS;
+&#125;
+
+NTSTATUS DriverEntry(PDRIVER_OBJECT pDriver, PUNICODE_STRING regPath)
+&#123;
+    PDEVICE_OBJECT deviceObject = NULL;
+    UNICODE_STRING deviceName, symbolicLinkName;
+
+
+    RtlInitUnicodeString(&amp;deviceName, DEVICENAME);
+
+    NTSTATUS status = IoCreateDevice(
+        pDriver,					//设备所属的驱动对象，创建成功后会被添加到驱动的DeviceObject链表中
+        0,							//设备扩展区域的大小
+        &amp;deviceName,				//设备对象名称
+        FILE_DEVICE_UNKNOWN,		//表示是与硬件无关的设备对象
+        FILE_DEVICE_SECURE_OPEN,	//设备属性，多数驱动程序填此值即可
+        FALSE,						//表示设备是否是独占的，多数填FALSE
+        &amp;deviceObject);				//设备对象
+
+    if (!NT_SUCCESS(status))
+    &#123;
+        DbgPrint(&quot;设备对象创建失败!\n&quot;);
+        return status;
+    &#125;
+
+    DbgPrint(&quot;设备创建成功!\n&quot;);
+    RtlInitUnicodeString(&amp;symbolicLinkName, SYMBOLICLINKNAME);
+    status = IoCreateSymbolicLink(&amp;symbolicLinkName, &amp;deviceName);
+
+    if (!NT_SUCCESS(status))
+    &#123;
+        DbgPrint(&quot;符号链接创建失败!\n&quot;);
+        IoDeleteDevice(deviceObject);
+        return status;
+    &#125;
+
+    pDriver-&gt;MajorFunction[IRP_MJ_CREATE] = CreateDispatchRoutine;
+    pDriver-&gt;MajorFunction[IRP_MJ_DEVICE_CONTROL] = DeviceIoCtlDispatchRoutine;
+
+
+    pDriver-&gt;Flags |= DO_BUFFERED_IO;
+    pDriver-&gt;DriverUnload = DriverUnload;
+    return STATUS_SUCCESS;
+&#125;
+</code></pre>
+<h4 id="3环程序"><a href="#3环程序" class="headerlink" title="3环程序"></a>3环程序</h4><pre><code class="c">#include&lt;windows.h&gt;
+#include&lt;stdio.h&gt;
+//与0环通信需要用到符号链接
+#define SYMBOLICLINKNAME L&quot;\\\\.\\FirstSym&quot;
+#define CTL_DO_BUFFERED CTL_CODE(FILE_DEVICE_UNKNOWN, 0x800, METHOD_BUFFERED, FILE_ALL_ACCESS)
+
+int main()
+&#123;
+    HANDLE hDevice = CreateFileW(SYMBOLICLINKNAME, GENERIC_ALL, 0, 0, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, 0);
+    if (INVALID_HANDLE_VALUE == hDevice)
+    &#123;
+        printf(&quot;获取设备句柄失败!\n&quot;);
+        return -1;
+    &#125;
+
+    CHAR outBuffer[0x100]&#123;&#125;;
+    DWORD outLength&#123;&#125;;
+    DeviceIoControl(hDevice, 
+        CTL_DO_BUFFERED, 
+        (LPVOID)&quot;hello world&quot;,	//输入缓冲区地址
+        12,						//缓冲区长度
+        outBuffer,				//输出缓冲区
+        0x100,					//缓冲区长度
+        &amp;outLength,				//读取多少个字节
+        NULL);
+    printf(&quot;%s %d\n&quot;, outBuffer, outLength);
+
+    CloseHandle(hDevice);
+    system(&quot;pause&quot;);
+    return 0;
+&#125;
+</code></pre>
+</div></div></body><script src="/js/highlight.min.js"></script><script src="/js/main.js?v=1"></script><script src="/js/bootstrap/bootstrap.min.js"></script><script async="" src="https://www.googletagmanager.com/gtag/js?id=UA-0000"></script><script>window.dataLayer = window.dataLayer || [];
+function gtag(){dataLayer.push(arguments);}
+gtag('js', new Date());
+gtag('config', 'UA-0000');</script></html>
