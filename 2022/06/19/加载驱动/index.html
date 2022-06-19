@@ -1,0 +1,125 @@
+<!DOCTYPE html><html lang="en"><head><title>加载驱动</title><meta http-equiv="content-type" content="text/html; charset=utf-8"><meta name="viewport" content="width=device-width, initial-scale=0.5"><link rel="icon" type="image/svg+xml" href="/favicon.svg"><link rel="stylesheet" href="/css/highlight/xcode.min.css"><link rel="stylesheet" href="/css/bootstrap/bootstrap-tooltips.css"><link rel="stylesheet" href="/css/post.css"><script src="/js/jquery.min.js"></script><meta name="generator" content="Hexo 6.1.0"></head><body><script>if (/mobile/i.test(navigator.userAgent) || /android/i.test(navigator.userAgent)) {
+  document.body.classList.add('mobile')
+}</script><div><div class="inner"><h2>加载驱动</h2><pre><code class="cpp">#include&lt;windows.h&gt;
+#include&lt;stdio.h&gt;
+#define DRIVERNAME L&quot;0环3环通信-0环&quot;
+#define DRIVERPATH L&quot;0环3环通信-0环.sys&quot;
+/*
+1.获取驱动文件的全路径GetFullPathName
+2.打开服务控制管理器OpenSCManager
+3.创建服务CreateService
+4.打开服务OpenService
+5.运行服务StartSerive
+6.关闭SCM管理器句柄与服务句柄CloseServiceHandle
+*/
+BOOL LoadDriver(PCWSTR lpszDriverName, PCWSTR lpszDriverPath)
+&#123;
+    WCHAR szDriverFullPath[MAX_PATH] = &#123; 0 &#125;;
+    //获取驱动的全路径
+    //此函数只能用于获取当前目录的文件
+    GetFullPathName(lpszDriverPath, MAX_PATH, szDriverFullPath, NULL);
+    wprintf(L&quot;%s&quot;, szDriverFullPath);
+
+    //打开服务控制管理器
+    //SCM管理器句柄
+    SC_HANDLE hServiceMgr = NULL;
+    hServiceMgr = OpenSCManagerW(NULL, NULL, SC_MANAGER_ALL_ACCESS);
+    if (NULL == hServiceMgr)
+    &#123;
+        printf(&quot;OpenSCManagerW失败! %d\n&quot;, GetLastError());
+        return FALSE;
+    &#125;
+    printf(&quot;打开服务控制管理其器成功!\n&quot;);
+
+    //创建驱动服务
+    SC_HANDLE hServiceDDK = CreateServiceW(hServiceMgr,
+        lpszDriverName,
+        lpszDriverName,				//用户界面程序用来标识服务的显示名称
+        SERVICE_ALL_ACCESS,
+        SERVICE_KERNEL_DRIVER,		//驱动服务
+        SERVICE_DEMAND_START,		//调用StartService时由服务控制管理器启动
+        SERVICE_ERROR_IGNORE,		//启动程序忽略错误并继续启动操作
+        szDriverFullPath,
+        NULL,
+        NULL,
+        NULL,
+        NULL,
+        NULL
+    );
+
+    if (NULL == hServiceDDK)
+    &#123;
+        DWORD dwErr = GetLastError();
+        if (dwErr != ERROR_IO_PENDING &amp;&amp; dwErr != ERROR_SERVICE_EXISTS)
+        &#123;
+            printf(&quot;创建驱动服务失败!, %d\n&quot;, dwErr);
+            return FALSE;
+        &#125;
+    &#125;
+    printf(&quot;创建驱动服务成功!\n&quot;);
+
+    hServiceDDK = OpenServiceW(hServiceMgr, lpszDriverName, SERVICE_ALL_ACCESS);
+    if (!StartService(hServiceDDK, NULL, NULL))
+    &#123;
+        DWORD dwErr = GetLastError();
+        if (dwErr != ERROR_SERVICE_ALREADY_RUNNING)
+        &#123;
+            printf(&quot;驱动服务已经在运行!, %d\n&quot;, dwErr);
+            return FALSE;
+        &#125;
+    &#125;
+    printf(&quot;运行驱动服务成功!\n&quot;);
+
+    if (hServiceDDK)
+    &#123;
+        CloseServiceHandle(hServiceDDK);
+    &#125;
+    if (hServiceMgr)
+    &#123;
+        CloseServiceHandle(hServiceMgr);
+    &#125;
+    return TRUE;
+&#125;
+
+/*
+1.打开SCM服务控制管理器OpenSCManager
+2.打开服务OpenService
+3.停止服务ControlService
+4.删除服务DeleteService
+5.关闭句柄CloseServiceHandle
+*/
+void UnloadDriver(PCWSTR lpszDriverName)
+&#123;
+    SC_HANDLE hServiceMgr = OpenSCManagerW(NULL, NULL, SC_MANAGER_ALL_ACCESS);
+    SC_HANDLE hServiceDDK = OpenServiceW(hServiceMgr, lpszDriverName, SERVICE_ALL_ACCESS);
+    SERVICE_STATUS serviceStatus;
+    ControlService(hServiceDDK, SERVICE_CONTROL_STOP, &amp;serviceStatus);
+    DeleteService(hServiceDDK);
+    printf(&quot;驱动已停止并卸载!\n&quot;);
+    if (hServiceDDK)
+    &#123;
+        CloseServiceHandle(hServiceDDK);
+    &#125;
+    if (hServiceMgr)
+    &#123;
+        CloseServiceHandle(hServiceMgr);
+    &#125;
+&#125;
+
+int main()
+&#123;
+    if (!LoadDriver(DRIVERNAME, DRIVERPATH))
+    &#123;
+        printf(&quot;加载驱动失败!\n&quot;);
+        getchar();
+        return -1;
+    &#125;
+    UnloadDriver(DRIVERNAME);
+    getchar();
+    return 0;
+&#125;
+</code></pre>
+</div></div></body><script src="/js/highlight.min.js"></script><script src="/js/main.js?v=1"></script><script src="/js/bootstrap/bootstrap.min.js"></script><script async="" src="https://www.googletagmanager.com/gtag/js?id=UA-0000"></script><script>window.dataLayer = window.dataLayer || [];
+function gtag(){dataLayer.push(arguments);}
+gtag('js', new Date());
+gtag('config', 'UA-0000');</script></html>
