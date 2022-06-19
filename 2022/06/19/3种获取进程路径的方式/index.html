@@ -1,0 +1,26 @@
+<!DOCTYPE html><html lang="en"><head><title>种获取进程路径的方式</title><meta http-equiv="content-type" content="text/html; charset=utf-8"><meta name="viewport" content="width=device-width, initial-scale=0.5"><link rel="icon" type="image/svg+xml" href="/favicon.svg"><link rel="stylesheet" href="/css/highlight/xcode.min.css"><link rel="stylesheet" href="/css/bootstrap/bootstrap-tooltips.css"><link rel="stylesheet" href="/css/post.css"><script src="/js/jquery.min.js"></script><meta name="generator" content="Hexo 6.1.0"></head><body><script>if (/mobile/i.test(navigator.userAgent) || /android/i.test(navigator.userAgent)) {
+  document.body.classList.add('mobile')
+}</script><div><div class="inner"><h2>种获取进程路径的方式</h2><pre><code class="cpp">#include&lt;stdio.h&gt;
+#include&lt;windows.h&gt;
+#include&lt;Psapi.h&gt;
+
+int main()
+&#123;
+    WCHAR szFilePath[MAX_PATH] = &#123; 0 &#125;;
+    //模块只能是本进程记载的，如何要找其他进程的模块，使用Ex版
+    GetModuleFileName(LoadLibrary(L&quot;user32.dll&quot;), szFilePath, MAX_PATH);
+    wprintf(L&quot;%s\n&quot;, szFilePath);
+
+    HANDLE hProcess = OpenProcess(PROCESS_ALL_ACCESS, FALSE, 6164);
+    GetProcessImageFileName(hProcess, szFilePath, MAX_PATH);
+    wprintf(L&quot;%s\n&quot;, szFilePath);
+
+    DWORD dwSize = 0;
+    QueryFullProcessImageName(hProcess, 0, szFilePath, &amp;dwSize);
+    wprintf(L&quot;%s\n&quot;, szFilePath);
+&#125;
+</code></pre>
+</div></div></body><script src="/js/highlight.min.js"></script><script src="/js/main.js?v=1"></script><script src="/js/bootstrap/bootstrap.min.js"></script><script async="" src="https://www.googletagmanager.com/gtag/js?id=UA-0000"></script><script>window.dataLayer = window.dataLayer || [];
+function gtag(){dataLayer.push(arguments);}
+gtag('js', new Date());
+gtag('config', 'UA-0000');</script></html>
